@@ -1,6 +1,7 @@
 
-#include<ncurses.h>
+// Aeen Karimian
 
+#include<ncurses.h>
 #include<stdlib.h>
 
 

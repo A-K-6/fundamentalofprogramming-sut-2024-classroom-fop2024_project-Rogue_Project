@@ -7,6 +7,7 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
+
 char *Items[] = {
     "1. New User",
     "2. Login",
@@ -18,7 +19,6 @@ char *Items[] = {
     "Exit"
 };
 
-/* Forward declarations for menu handlers */
 
 int main_menu(); 
 void new_user();
@@ -41,16 +41,28 @@ int main() {
     keypad(stdscr, TRUE);
     curs_set(0);  // Hide cursor
 
+
     int option = 0; 
+
+
 
     while (option != 7)
     {
         option = main_menu();
-        
-    }
+        switch (option)
+        {
+            case 0: new_user(); break;
+            case 1: login(); break;
+            case 2: game_menu(); break;
+            case 3: new_game(); break;
+            case 4: continue_game(); break;
+            case 5: leader_board(); break;
+            case 6: settings(); break;
+            case 7: 
+                exit(-1);
+        }
     
-    main_menu(); 
-
+    }
     return 0;
 }
 
@@ -277,18 +289,22 @@ int main_menu() {
                     case 4: continue_game(); break;
                     case 5: leader_board(); break;
                     case 6: settings(); break;
-                    case 7: goto cleanup;  // Exit
+                    case 7: 
+                        cleanup(menu, items, n_items);
+                        delwin(main_win);
+                        endwin();
+                        return 7; 
+                        break;  // Exit
                 }
                 refresh();
-                break;
         }
-        wrefresh(menu_win);
     }
+        wrefresh(menu_win);
 
-cleanup:
-    cleanup(menu, items, n_items);
-    delwin(main_win);
-    endwin();
+// cleanup:
+//     cleanup(menu, items, n_items);
+//     delwin(main_win);
+//     endwin();
 
 
 }

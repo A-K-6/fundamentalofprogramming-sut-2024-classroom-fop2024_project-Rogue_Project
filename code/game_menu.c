@@ -223,7 +223,8 @@ int main_menu() {
 
     int height = LINES - 2;
     int width = COLS - 2;
-        WINDOW *main_win = newwin(height, width, 1, 1);
+    WINDOW *main_win = newwin(height, width, 1, 1);
+    mvprintw(LINES - 3, 3 , "hi");    
     box(main_win, 0, 0);
     wrefresh(main_win);
 
@@ -255,7 +256,6 @@ int main_menu() {
     mvprintw(LINES - 1, 2, "Use arrow keys to navigate, Enter to select, F1 to exit");
     refresh();
 
-    // Menu navigation
     int c;
     while((c = getch()) != KEY_F(1)) {
         switch(c) {
@@ -271,7 +271,8 @@ int main_menu() {
             case KEY_RIGHT:
                 menu_driver(menu, REQ_RIGHT_ITEM);
                 break;
-            case 10:  // Enter key
+            // case 10: 
+            //     break; // Enter key
             case KEY_ENTER:
                 ITEM *cur = current_item(menu);
                 int index = item_index(cur);
@@ -296,16 +297,11 @@ int main_menu() {
                         return 7; 
                         break;  // Exit
                 }
-                refresh();
+                break;
         }
     }
+        refresh();
         wrefresh(menu_win);
-
-// cleanup:
-//     cleanup(menu, items, n_items);
-//     delwin(main_win);
-//     endwin();
-
 
 }
 

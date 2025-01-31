@@ -20,50 +20,21 @@ char *Items[] = {
 };
 
 
-int main_menu(); 
-void new_user();
-void login();
-void game_menu();
-void new_game();
-void continue_game();
-void leader_board();
-void settings();
-
-
 
 WINDOW *create_menu_window(int height, int width);
 void cleanup(MENU *menu, ITEM **items, int n_items);
 
 int main() {
-    initscr();
+    initscr(); 
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);  // Hide cursor
 
 
-    int option = 0; 
 
 
 
-    while (option != 7)
-    {
-        option = main_menu();
-        switch (option)
-        {
-            case 0: new_user(); break;
-            case 1: login(); break;
-            case 2: game_menu(); break;
-            case 3: new_game(); break;
-            case 4: continue_game(); break;
-            case 5: leader_board(); break;
-            case 6: settings(); break;
-            case 7: 
-                exit(-1);
-        }
-    
-    }
-    return 0;
 }
 
 /* Create centered menu window with border */

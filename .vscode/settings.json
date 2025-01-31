@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "*.json": "jsonl",
-        "random": "c"
+        "random": "c",
+        "stdlib.h": "c"
     }
 }

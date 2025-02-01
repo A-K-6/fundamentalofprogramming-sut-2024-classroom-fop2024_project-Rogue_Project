@@ -8,6 +8,9 @@
 #include <stdio.h>
 
 
+
+char *USER = "Guest";
+
 int get_user_info(const char *username, char *email, char *password) ;
 int is_valid_email(const char *email) ;
 int create_start_menu(); 
@@ -19,6 +22,7 @@ void save_user(const char *email, const char *username, const char *password);
 void generate_random_password(FIELD *password_field);
 void log_in();
 int check_password(char *username, char *password_input);
+void forget_passwrod(const char *user_name, FIELD *password_field);
 
 int split(const char *str, char delimiter, char **tokens, int max_tokens) ;
 int main(){
@@ -108,6 +112,7 @@ int create_start_menu(){
     set_menu_back(starting_menu, A_NORMAL);
 
     
+    mvprintw(LINES -3 ,0 ,  USER); 
 
     mvprintw(LINES -2, 0 , "Use arrow key to go up and down through the menu" );
     post_menu(starting_menu);
@@ -332,17 +337,48 @@ void log_in(){
             case KEY_ENTER:
             case 10: // Enter key
                 {
-                    char *username_input    = trim_whitespace(field_buffer(field[0], 0));
+                    char *username_input = trim_whitespace(field_buffer(field[0], 0));
                     char *password_input = trim_whitespace(field_buffer(field[1], 0));
-                    if (is_unique_username(username_input) == 1) {
-                        mvprintw(14, 10, "User name doesn't exists.");
+                    if (is_unique_username(username_input)) {
+                        move(14,0); clrtoeol(); 
+                        mvprintw(14, 10, "Username does not exist");
+                        refresh(); 
+                    // if (!is_unique_username(username_input) == 1) {
+                    //     mvprintw(10,10, "searching through the password");
+                    //     mvprintw(14, 10, password);
                     }
                     else
                     {
                         char *password = malloc(100*sizeof(char));
                         char *email= malloc(100*sizeof(char));
                         get_user_info(username_input,email, password);
-                        mvprintw(14, 10, password);
+                        if(strcmp(password_input, password) == 0){
+                            USER = malloc(100*sizeof(char));
+
+                            strcpy(USER, username_input);
+
+                            move(14,0); clrtoeol(); 
+
+                            mvprintw(14,10, "loged in :)");
+
+                            refresh();
+
+
+                            unpost_form(my_form);
+                            free_form(my_form);
+                            for (int i = 0; i < 3; i++) {
+                                free_field(field[i]);
+                            }
+                            endwin();
+                            return ; 
+
+                        }
+                        else{
+                            move(14,0); clrtoeol(); 
+                            mvprintw(14,10, "wrong password");
+                            refresh(); 
+
+                        }
                     }
                 }
 
@@ -353,7 +389,17 @@ void log_in(){
                 form_driver(my_form, REQ_DEL_PREV);
                 break;
             case KEY_F(2):
-                // password gonna be here :‌)
+                    char *username_input = trim_whitespace(field_buffer(field[0], 0));
+                    char *password_input = trim_whitespace(field_buffer(field[1], 0));
+                    if (is_unique_username(username_input)) {
+                        move(14,0); clrtoeol(); 
+                        mvprintw(14, 10, "Username does not exist");
+                        refresh(); 
+                    }
+                    else
+                    {
+                        forget_passwrod(username_input, field[1]);
+                    }
                 break;
             default:
                 form_driver(my_form, ch);
@@ -378,7 +424,7 @@ int is_valid_email(const char *email) {
 
 void save_user(const char *email, const char *username, const char *password) {
     FILE *file = fopen("users.txt", "a");
-    fprintf(file, "%s|%s|%s\n", username, email,  password);
+    fprintf(file, "%s|%s|%s\n", username, password,  email);
     fclose(file);
 }
 
@@ -503,8 +549,8 @@ int get_user_info(const char *username, char *email, char *password) {
 
         if (num_tokens == 3) {
             char *stored_username = tokens[0];
-            char *stored_email = tokens[1];
-            char *stored_password = tokens[2];
+            char *stored_email = tokens[2];
+            char *stored_password = tokens[1];
 
             // Compare usernames
             if (strcmp(username, stored_username) == 0) {
@@ -529,6 +575,16 @@ int get_user_info(const char *username, char *email, char *password) {
 
     fclose(file);
     return 0; // User not found
+}
+
+void forget_passwrod(const char *user_name, FIELD *password_field){
+    char *password = malloc(100*sizeof(char));
+    char *email= malloc(100*sizeof(char));
+    get_user_info(user_name,email, password);
+
+    set_field_buffer(password_field, 0 , password);
+
+
 }
 
 

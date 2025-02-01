@@ -11,6 +11,9 @@
 
 char *USER = "Guest";
 
+
+
+int pregame_menu();
 int get_user_info(const char *username, char *email, char *password) ;
 int is_valid_email(const char *email) ;
 int create_start_menu(); 
@@ -41,12 +44,39 @@ int main(){
             create_new_user();
         }
         else if(option == 1){
-            
             log_in();
             
         }
         else if(option == 2){
-            printf("hi");
+            int pregame_option = pregame_menu();
+            while (pregame_option != 4)
+            {
+                
+
+
+                switch (pregame_option)
+                {
+                case 0:
+                    /* new_game */
+                    break;
+                
+                case 1:
+                    /* Resume Game*/
+                    break;
+
+                case 2:
+                    /* scorboard*/
+                    break;
+                case 3:
+                    /* setting */
+                    break;
+                case 4:
+                    /* exit*/
+                    break;
+
+                }
+            }
+            
         }
         else if(option == 3){
             printf("hi");
@@ -59,7 +89,7 @@ int main(){
             exit(1);
         }
 
-    } while (option != 5);
+    } while (option != 4);
     
     
     
@@ -72,8 +102,10 @@ int create_start_menu(){
     char *choices[] = {
         "New User", 
         "LogIn", 
-        "Create Game", 
-        "Load Game", 
+        "Pre-Game Menu", 
+        // "New Game", 
+        // "Resume Game", 
+        // "Scoreboard"
         "Setting",
         "Exit",
         NULL
@@ -144,6 +176,86 @@ int create_start_menu(){
     }    
     endwin(); // ends the program. 
     return index;
+}
+
+int pregame_menu(){
+    char *choices[] = {
+        "New Game", 
+        "Resume Game", 
+        "Scoreboard",
+        "Setting",
+        "Exit",
+        NULL
+    }; 
+
+    initscr(); // initial courses 
+
+    cbreak(); /**/
+
+    noecho(); /* enables no echo mode. */
+    curs_set(0); /*off the curser to 0 to not show the curser*/
+    keypad(stdscr, TRUE); /* enabels arrow keys */
+
+
+
+    ITEM **items;
+    int n_choices, i;
+
+    n_choices = sizeof(choices) / sizeof(choices[0]) - 1;
+    items = (ITEM **)calloc(n_choices + 1, sizeof(ITEM *));
+
+    for(i = 0; i < n_choices; ++i) {
+        items[i] = new_item(choices[i], NULL);
+    }
+    items[n_choices] = (ITEM *)NULL; 
+
+
+    MENU *starting_menu;
+    starting_menu = new_menu((ITEM **)items);
+
+    set_menu_mark(starting_menu, " -- ");
+    
+    start_color(); /* Set collor for my menu. */
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    set_menu_fore(starting_menu, COLOR_PAIR(1) | A_REVERSE);
+    set_menu_back(starting_menu, A_NORMAL);
+
+    
+    mvprintw(LINES -3 ,0 ,  USER); 
+
+    mvprintw(LINES -2, 0 , "Use arrow key to go up and down through the menu" );
+    post_menu(starting_menu);
+    refresh();
+
+
+    int command; 
+
+    while ((command = getch()) != '\n')
+    {
+        switch (command)
+        {
+        case KEY_DOWN:
+            menu_driver(starting_menu, REQ_DOWN_ITEM); 
+            break;
+        case KEY_UP:
+            menu_driver(starting_menu, REQ_UP_ITEM);
+            break;
+        }
+    }
+
+    ITEM *cur_item = current_item(starting_menu);
+    int index = item_index(cur_item);
+    unpost_menu(starting_menu); 
+    free_menu(starting_menu);
+    for (int i = 0; i < n_choices; i++)
+    {
+        free_item(items[i]);
+    }    
+    endwin(); // ends the program. 
+    return index;
+
+
+
 }
 
 

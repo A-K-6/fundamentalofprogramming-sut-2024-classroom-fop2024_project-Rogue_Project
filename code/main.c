@@ -1,3 +1,7 @@
+// 403 171 146 
+// Aeen Karimian
+
+
 #include <ncurses.h>
 #include <menu.h>
 #include <form.h>
@@ -6,11 +10,28 @@
 #include <ctype.h>
 #include <regex.h>
 #include <stdio.h>
+#include <time.h>
 
 
+#define MAP_HEIGHT 25
+#define MAP_WIDTH 80
+#define MAX_ROOMS 3
+#define MAX_ATTEMPTS 20
 
-char *USER = "Guest";
+typedef struct 
+{
+    char username[30];
+    int score;
+} User ;
 
+typedef struct {
+    int x, y; // Top-left corner of the room (within the map)
+    int w, h;         // Width and height of the room
+    int door_x, door_y; 
+} Room;
+
+
+User main_user;
 
 
 int pregame_menu();
@@ -26,6 +47,20 @@ void generate_random_password(FIELD *password_field);
 void log_in();
 int check_password(char *username, char *password_input);
 void forget_passwrod(const char *user_name, FIELD *password_field);
+
+
+
+
+// void init_map(char map[MAP_HEIGHT][MAP_WIDTH]);
+// void draw_room(char map[MAP_HEIGHT][MAP_WIDTH], Room *room);
+// void draw_corridor(char map[MAP_HEIGHT][MAP_WIDTH], int x1, int y1, int x2, int y2);
+// bool rooms_overlap(Room r1, Room r2);
+// void generate_map(char map[MAP_HEIGHT][MAP_WIDTH], Room rooms[], int *room_count);
+// void display_game(char map[MAP_HEIGHT][MAP_WIDTH], int player_x, int player_y);
+// void save_game(const char map[MAP_HEIGHT][MAP_WIDTH], int player_x, int player_y);
+
+
+
 
 int split(const char *str, char delimiter, char **tokens, int max_tokens) ;
 int main(){
@@ -53,13 +88,12 @@ int main(){
             {
                 
 
-
                 switch (pregame_option)
                 {
                 case 0:
-                    /* new_game */
-                    break;
-                
+                        // continue game. 
+                        display_game();        
+                        break;            
                 case 1:
                     /* Resume Game*/
                     break;
@@ -144,7 +178,7 @@ int create_start_menu(){
     set_menu_back(starting_menu, A_NORMAL);
 
     
-    mvprintw(LINES -3 ,0 ,  USER); 
+    mvprintw(LINES -3 ,0 ,  main_user.username); 
 
     mvprintw(LINES -2, 0 , "Use arrow key to go up and down through the menu" );
     post_menu(starting_menu);
@@ -221,7 +255,7 @@ int pregame_menu(){
     set_menu_back(starting_menu, A_NORMAL);
 
     
-    mvprintw(LINES -3 ,0 ,  USER); 
+    mvprintw(LINES -3 ,0 ,  main_user.username ); 
 
     mvprintw(LINES -2, 0 , "Use arrow key to go up and down through the menu" );
     post_menu(starting_menu);
@@ -465,9 +499,8 @@ void log_in(){
                         char *email= malloc(100*sizeof(char));
                         get_user_info(username_input,email, password);
                         if(strcmp(password_input, password) == 0){
-                            USER = malloc(100*sizeof(char));
-
-                            strcpy(USER, username_input);
+                            
+                            strcpy(main_user.username , username_input);
 
                             move(14,0); clrtoeol(); 
 
@@ -737,3 +770,60 @@ int split(const char *str, char delimiter, char **tokens, int max_tokens) {
 
     return token_count;
 }
+
+
+
+void generate_map(char map[MAP_HEIGHT][MAP_WIDTH + 1]) {
+    for (int i = 0; i < MAP_HEIGHT; i++) {
+        for (int j = 0; j < MAP_WIDTH; j++) {
+            // Place a wall on the borders; otherwise, a floor.
+            if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) {
+                map[i][j] = '#';
+            } else {
+                map[i][j] = '.';
+            }
+        }
+        // Null-terminate each row for printing as a string.
+        map[i][MAP_WIDTH] = '\0';
+    }
+}
+
+void display_game() {
+    // Initialize ncurses
+    initscr();              // Start curses mode
+    noecho();               // Don't echo input characters
+    curs_set(FALSE);        // Hide the cursor
+    keypad(stdscr, TRUE);   // Enable arrow keys and other special keys
+
+    // Clear the screen and draw a border around the window
+    clear();
+    box(stdscr, 0, 0);
+
+    // Generate the map
+    char map[MAP_HEIGHT][MAP_WIDTH + 1];
+    generate_map(map);
+
+    // Calculate starting position to center the map on the screen.
+    // Adjust these values based on your terminal size.
+    int start_y = (LINES - MAP_HEIGHT) / 2;
+    int start_x = (COLS - MAP_WIDTH) / 2;
+
+    // Print the map on the screen.
+    for (int i = 0; i < MAP_HEIGHT; i++) {
+        mvprintw(start_y + i, start_x, "%s", map[i]);
+    }
+
+    // Optional: Add a title or instructions below the map.
+    mvprintw(start_y + MAP_HEIGHT + 1, start_x, "Press any key to exit...");
+
+    // Refresh the screen to show changes
+    refresh();
+
+    // Wait for a key press before exiting
+    getch();
+
+    // End ncurses mode and restore normal terminal behavior
+    endwin();
+}
+
+

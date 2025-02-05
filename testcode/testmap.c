@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
-#include <string.h>
 
 // --- Constants ---
 #define MESSAGE_HEIGHT 3     // Height for the message bar
@@ -20,20 +19,6 @@
 
 // How long (ms) after the last 'm' key press to continue showing full map.
 #define MAP_SHOW_THRESHOLD 150
-
-// --- Fallback definitions for shifted arrow keys if not defined ---
-#ifndef KEY_SLEFT
-#define KEY_SLEFT 393
-#endif
-#ifndef KEY_SRIGHT
-#define KEY_SRIGHT 402
-#endif
-#ifndef KEY_SUP
-#define KEY_SUP 337
-#endif
-#ifndef KEY_SDOWN
-#define KEY_SDOWN 336
-#endif
 
 // --- Global Variables ---
 // Global flag and timer for full-map view.
@@ -68,7 +53,6 @@ typedef struct {
 } Player;
 
 // --- Helper Functions ---
-
 // Returns non-zero if the two rooms overlap.
 int roomsOverlap(Room a, Room b) {
     return !(a.x + a.width + 1 < b.x ||
@@ -290,7 +274,7 @@ void displayMap(WINDOW *game_win, int floor, Player *player) {
 // A helper to check if a cell is allowed for movement.
 int isAllowedCell(char cell) {
     return (cell == '.' || cell == '#' || cell == '+' || cell == '<' || cell == '>' || cell == 'E');
-    // 'E' denotes the end game room's marker.
+    // 'E' will denote the end game room's marker.
 }
 
 // Get current time in milliseconds.
@@ -298,37 +282,6 @@ long getCurrentTimeMs() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (long)(ts.tv_sec * 1000L + ts.tv_nsec / 1000000L);
-}
-
-// --- Input Parsing ---
-// This function reads a key and, if an escape sequence for a shifted arrow is detected,
-// returns a corresponding key code (KEY_SUP, KEY_SDOWN, KEY_SLEFT, KEY_SRIGHT).
-int readInput() {
-    int ch = getch();
-    if (ch == 27) { // Escape character; might be start of an escape sequence.
-        // Use non-blocking getch() calls to try to read the full sequence.
-        int seq[6];
-        memset(seq, 0, sizeof(seq));
-        // Try to read up to 5 more characters.
-        for (int i = 0; i < 5; i++) {
-            int next = getch();
-            if (next == ERR)
-                break;
-            seq[i] = next;
-        }
-        // Many terminals send: ESC [ 1 ; 2 X  where X is A, B, C, or D.
-        if (seq[0] == '[' && seq[1] == '1' && seq[2] == ';' && seq[3] == '2') {
-            switch(seq[4]) {
-                case 'A': return KEY_SUP;
-                case 'B': return KEY_SDOWN;
-                case 'C': return KEY_SRIGHT;
-                case 'D': return KEY_SLEFT;
-            }
-        }
-        // If not recognized, return the first character.
-        return ch;
-    }
-    return ch;
 }
 
 // --- Floor Setup ---
@@ -354,6 +307,7 @@ void setupFloors() {
     Room stairRoom1;
     if (floorRooms[0].count > 0) {
         stairRoom1 = floorRooms[0].rooms[0];  // You can choose randomly if desired.
+        // Choose a random stair position inside the room.
         chooseStairPosition(stairRoom1, &stairA_x, &stairA_y);
         // Place the up-stair ('<') in floor 1.
         floors[0][stairA_y][stairA_x] = '<';
@@ -361,6 +315,7 @@ void setupFloors() {
     
     // --- Floor 2: force the room from floor 1. ---
     generateMapWithRooms(floors[1], &floorRooms[1], &stairRoom1);
+    // In floor 2, place the down-stair ('>') at the same position.
     floors[1][stairA_y][stairA_x] = '>';
     
     // Choose a different room from floor 2 for the next upward stair.
@@ -390,6 +345,7 @@ void setupFloors() {
     // Additionally, designate one extra room on floor 4 as the end game room.
     if (floorRooms[3].count > 1) {
         endGameRoom = floorRooms[3].rooms[floorRooms[3].count - 1];
+        // Mark a random cell inside that room with 'E' (end game marker).
         int ex, ey;
         chooseStairPosition(endGameRoom, &ex, &ey);
         floors[3][ey][ex] = 'E';
@@ -433,7 +389,7 @@ void displayGame() {
     box(status_win, 0, 0);
     wrefresh(status_win);
     
-    mvwprintw(msg_win, 1, 1, "Arrow keys: move, Shift+arrow: run, colors: r/g/b/y/m/c, hold 'm' for full map, F1 to quit.");
+    mvwprintw(msg_win, 1, 1, "Arrow keys: move, Shift+arrow: slide, colors: r/g/b/y/m/c, hold 'm' for full map, F1 to quit.");
     wrefresh(msg_win);
     
     mvwprintw(status_win, 1, 1, "Name: Player1");
@@ -471,72 +427,51 @@ void displayGame() {
     int ch;
     bool gameEnded = false;
     
-    while ((ch = readInput()) != KEY_F(1) && !gameEnded) {
+    while ((ch = getch()) != KEY_F(1) && !gameEnded) {
         if (ch != ERR) {
-            // Check for shifted arrow keys and run in that direction.
-            if (ch == KEY_SLEFT) {
-                while (player.x - 1 >= 0 && isAllowedCell(floors[current_floor][player.y][player.x - 1])) {
-                    player.x--;
-                    updateDiscovered(current_floor, player.x, player.y);
-                    werase(game_win);
-                    box(game_win, 0, 0);
-                    displayMap(game_win, current_floor, &player);
-                    napms(30);
+            if (ch == 'm') {
+                last_m_time_ms = getCurrentTimeMs();
+                showFullMap = 1;
+            } else {
+                int new_x = player.x, new_y = player.y;
+                // Normal one-tile movement for arrow keys.
+                switch(ch) {
+                    case KEY_UP:    new_y--; break;
+                    case KEY_DOWN:  new_y++; break;
+                    case KEY_LEFT:  new_x--; break;
+                    case KEY_RIGHT: new_x++; break;
+                    // Shifted arrow keys: slide in that direction until blocked.
+                    case shifKEY_SUP:
+                        while (new_y > 0 && isAllowedCell(floors[current_floor][new_y-1][player.x]))
+                            new_y--;
+                        break;
+                    case KEY_SDOWN:
+                        while (new_y < MAP_HEIGHT - 1 && isAllowedCell(floors[current_floor][new_y+1][player.x]))
+                            new_y++;
+                        break;
+                    case KEY_SLEFT:
+                        while (new_x > 0 && isAllowedCell(floors[current_floor][player.y][new_x-1]))
+                            new_x--;
+                        break;
+                    case KEY_SRIGHT:
+                        while (new_x < MAP_WIDTH - 1 && isAllowedCell(floors[current_floor][player.y][new_x+1]))
+                            new_x++;
+                        break;
                 }
-                continue;
-            } else if (ch == KEY_SRIGHT) {
-                while (player.x + 1 < MAP_WIDTH && isAllowedCell(floors[current_floor][player.y][player.x + 1])) {
-                    player.x++;
+                if (ch == 'r')      player.color = 1;
+                else if (ch == 'g') player.color = 2;
+                else if (ch == 'b') player.color = 3;
+                else if (ch == 'y') player.color = 4;
+                else if (ch == 'm') player.color = 5;  // 'm' is also used for full map.
+                else if (ch == 'c') player.color = 6;
+                
+                if (new_x >= 0 && new_x < MAP_WIDTH &&
+                    new_y >= 0 && new_y < MAP_HEIGHT &&
+                    isAllowedCell(floors[current_floor][new_y][new_x])) {
+                    player.x = new_x;
+                    player.y = new_y;
                     updateDiscovered(current_floor, player.x, player.y);
-                    werase(game_win);
-                    box(game_win, 0, 0);
-                    displayMap(game_win, current_floor, &player);
-                    napms(30);
                 }
-                continue;
-            } else if (ch == KEY_SUP) {
-                while (player.y - 1 >= 0 && isAllowedCell(floors[current_floor][player.y - 1][player.x])) {
-                    player.y--;
-                    updateDiscovered(current_floor, player.x, player.y);
-                    werase(game_win);
-                    box(game_win, 0, 0);
-                    displayMap(game_win, current_floor, &player);
-                    napms(30);
-                }
-                continue;
-            } else if (ch == KEY_SDOWN) {
-                while (player.y + 1 < MAP_HEIGHT && isAllowedCell(floors[current_floor][player.y + 1][player.x])) {
-                    player.y++;
-                    updateDiscovered(current_floor, player.x, player.y);
-                    werase(game_win);
-                    box(game_win, 0, 0);
-                    displayMap(game_win, current_floor, &player);
-                    napms(30);
-                }
-                continue;
-            }
-            
-            // Regular one-cell movement.
-            int new_x = player.x, new_y = player.y;
-            switch(ch) {
-                case KEY_UP:    new_y--; break;
-                case KEY_DOWN:  new_y++; break;
-                case KEY_LEFT:  new_x--; break;
-                case KEY_RIGHT: new_x++; break;
-            }
-            if (ch == 'r')      player.color = 1;
-            else if (ch == 'g') player.color = 2;
-            else if (ch == 'b') player.color = 3;
-            else if (ch == 'y') player.color = 4;
-            else if (ch == 'm') player.color = 5;  // 'm' is also used for full map.
-            else if (ch == 'c') player.color = 6;
-            
-            if (new_x >= 0 && new_x < MAP_WIDTH &&
-                new_y >= 0 && new_y < MAP_HEIGHT &&
-                isAllowedCell(floors[current_floor][new_y][new_x])) {
-                player.x = new_x;
-                player.y = new_y;
-                updateDiscovered(current_floor, player.x, player.y);
             }
         }
         

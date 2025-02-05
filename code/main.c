@@ -1687,7 +1687,7 @@ void displayGame() {
     setupFloors();
     
     // Place the player on Floor 1 at an allowed cell (avoid stair cells).
-    Player player = {0, 0, 1};
+    Player player = {.x= 0, .y = 0, .color = 1};
     bool foundPlayer = false;
     for (int j = 0; j < MAP_HEIGHT && !foundPlayer; j++) {
         for (int i = 0; i < MAP_WIDTH && !foundPlayer; i++) {
@@ -1711,7 +1711,10 @@ void displayGame() {
     while ((ch = readInput()) != KEY_F(1) && !gameEnded) {
         if (ch != ERR) {
             // Check for shifted arrow keys and run in that direction.
-            if (ch == KEY_SLEFT) {
+            if (ch == 'm') {
+                last_m_time_ms = getCurrentTimeMs();
+                showFullMap = 1;}
+            else if (ch == KEY_SLEFT) {
                 while (player.x - 1 >= 0 && isAllowedCell(floors[current_floor][player.y][player.x - 1])) {
                     player.x--;
                     updateDiscovered(current_floor, player.x, player.y);
@@ -1765,7 +1768,7 @@ void displayGame() {
             else if (ch == 'g') player.color = 2;
             else if (ch == 'b') player.color = 3;
             else if (ch == 'y') player.color = 4;
-            else if (ch == 'm') player.color = 5;  // 'm' is also used for full map.
+            else if (ch == 'p') player.color = 5;  // 'm' is also used for full map.
             else if (ch == 'c') player.color = 6;
             
             if (new_x >= 0 && new_x < MAP_WIDTH &&

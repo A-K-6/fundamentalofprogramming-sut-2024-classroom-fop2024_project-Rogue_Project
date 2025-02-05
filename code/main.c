@@ -56,16 +56,24 @@ typedef struct {
     char *username;
     char *password;
     char *email;
-    int Gold; 
-    int Armor; 
-    int Exp; 
-    int HP; 
-    int x, y;
     int color;  // Color pair number
 } User;
 
 
-User main_user = {.username ="Guest", .Armor = 60, .Exp = 0, .HP= 100, .Exp= 0};
+User main_user = {.username ="Guest"};
+
+// Structure for player info.
+typedef struct {
+    int x, y;
+    int color;  // Color pair number
+    char *username;
+    char *password;
+    char *email;
+    int Gold; 
+    int Armor; 
+    int Exp; 
+    int HP; 
+} Player;
 
 
 /* Structure to hold a scoreboard entry */
@@ -1298,11 +1306,6 @@ typedef struct {
     int count;
 } FloorRooms;
 
-// Structure for player info.
-typedef struct {
-    int x, y;
-    int color;  // Color pair number
-} Player;
 
 // --- Helper Functions ---
 
@@ -1673,21 +1676,30 @@ void displayGame() {
     mvwprintw(msg_win, 1, 1, "Arrow keys: move, Shift+arrow: run, colors: r/g/b/y/m/c, hold 'm' for full map, F1 to quit.");
     wrefresh(msg_win);
     
-    mvwprintw(status_win, 1, 1, "Name: Player1");
-    mvwprintw(status_win, 2, 1, "Gold: 100");
-    mvwprintw(status_win, 3, 1, "Armor: 50");
-    mvwprintw(status_win, 4, 1, "Exp: 0");
-    mvwprintw(status_win, 5, 1, "HP: 100");
-    wrefresh(status_win);
-    
     // Seed the random generator.
     srand(time(NULL));
     
     // Generate floors with matching stair rooms and designate the end game room.
     setupFloors();
     
-    // Place the player on Floor 1 at an allowed cell (avoid stair cells).
     Player player = {.x= 0, .y = 0, .color = 1};
+    // Place the player on Floor 1 at an allowed cell (avoid stair cells).
+    player.username = malloc(strlen(main_user.username)* sizeof(char) + 2*sizeof(char)); 
+
+    strcpy(player.username, main_user.username); 
+
+    player.Gold = 50; // starting gold
+    player.Armor = 50; // basic armor. 
+    player.Exp = 1; // basic EXp 
+    player.HP = 100; // basic HP 
+
+    mvwprintw(status_win, 1, 1, "Name: %s", player.username);
+    mvwprintw(status_win, 2, 1, "Gold: %d", player.Gold);
+    mvwprintw(status_win, 3, 1, "Armor: %d", player.Armor);
+    mvwprintw(status_win, 4, 1, "Exp: %d", player.Exp);
+    mvwprintw(status_win, 5, 1, "HP: %d", player.HP);
+    wrefresh(status_win);
+    
     bool foundPlayer = false;
     for (int j = 0; j < MAP_HEIGHT && !foundPlayer; j++) {
         for (int i = 0; i < MAP_WIDTH && !foundPlayer; i++) {
@@ -1709,6 +1721,23 @@ void displayGame() {
     bool gameEnded = false;
     
     while ((ch = readInput()) != KEY_F(1) && !gameEnded) {
+        mvwprintw(status_win, 1, 1, "Name: %s", player.username);
+        mvwprintw(status_win, 2, 1, "Gold: %d", player.Gold);
+        mvwprintw(status_win, 3, 1, "Armor: %d", player.Armor);
+        mvwprintw(status_win, 4, 1, "Exp: %d", player.Exp);
+        mvwprintw(status_win, 5, 1, "HP: %d", player.HP);
+        mvwprintw(status_win, 6, 1, "=======");
+        mvwprintw(status_win, 7, 1, "=======");
+        mvwprintw(status_win, 8, 1, "map press m");
+        mvwprintw(status_win, 10, 1, "red (press r)");
+        mvwprintw(status_win, 11, 1, "green (press g)");
+        mvwprintw(status_win, 12, 1, "brown (press y)");
+        mvwprintw(status_win, 13, 1, "purplu (press p)");
+        mvwprintw(status_win, 14, 1, "cyan (press c)");
+        mvwprintw(status_win, 15, 1, "speed (shift)");
+        
+        
+        wrefresh(status_win);
         if (ch != ERR) {
             // Check for shifted arrow keys and run in that direction.
             if (ch == 'm') {

@@ -1,58 +1,55 @@
 #include <ncurses.h>
 #include <stdlib.h>
-#include <time.h>
 #include <stdbool.h>
+#include <time.h>
+#include <string.h>
 
-// --- Constants ---
-#define MESSAGE_HEIGHT 3     // Height for the message bar
-#define STATUS_WIDTH   20    // Width for the status display
+// --- Constants & Type Definitions ---
 
-// Map dimensions.
-#define MAP_WIDTH  80
-#define MAP_HEIGHT 24
+#define MAP_WIDTH       80
+#define MAP_HEIGHT      24
+#define MAX_ROOMS       10
+#define NUM_FLOORS      4
+#define MESSAGE_HEIGHT  3
+#define STATUS_WIDTH    20
+#define FOV_RADIUS      5
 
-#define MAX_ROOMS 6
-#define NUM_FLOORS 4      // Floors 1 to 4
+// Custom key codes for shifted arrow keys.
+#define KEY_SUP     1001
+#define KEY_SDOWN   1002
+#define KEY_SLEFT   1003
+#define KEY_SRIGHT  1004
 
-// Field of view.
-#define FOV_RADIUS 2
-
-// How long (ms) after the last 'm' key press to continue showing full map.
-#define MAP_SHOW_THRESHOLD 150
-
-// --- Global Variables ---
-// Global flag and timer for full-map view.
-int showFullMap = 0;
-long last_m_time_ms = 0;
-
-// Each floor has its own discovered grid.
-bool discovered[NUM_FLOORS][MAP_HEIGHT][MAP_WIDTH] = { { { false } } };
-
-// The maps for each floor.
-char floors[NUM_FLOORS][MAP_HEIGHT][MAP_WIDTH];
-
-// --- Structures ---
-// Structure for room info.
 typedef struct {
-    int x, y;          // Top-left corner (including walls)
-    int width, height; // Dimensions (including walls)
-    int door_x, door_y;// Door coordinates on one wall
-    int door_wall;     // 0=top, 1=bottom, 2=left, 3=right
+    int x, y, width, height;
+    int door_wall;  // which wall has the door
+    int door_x, door_y;
 } Room;
 
-// Structure to hold all rooms in a floor.
 typedef struct {
     Room rooms[MAX_ROOMS];
     int count;
 } FloorRooms;
 
-// Structure for player info.
 typedef struct {
     int x, y;
-    int color;  // Color pair number
+    int color;
+    int Gold;
+    int Armor;
+    int Exp;
+    int HP;
+    char *username;
 } Player;
 
+// Global arrays for floors and discovered cells.
+char floors[NUM_FLOORS][MAP_HEIGHT][MAP_WIDTH];
+bool discovered[NUM_FLOORS][MAP_HEIGHT][MAP_WIDTH] = {{{0}}};
+
+// Global variable for map display.
+bool showFullMap = false;
+
 // --- Helper Functions ---
+
 // Returns non-zero if the two rooms overlap.
 int roomsOverlap(Room a, Room b) {
     return !(a.x + a.width + 1 < b.x ||
@@ -120,6 +117,96 @@ void carveRoom(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
     map[room.door_y][room.door_x] = '+';
 }
 
+// --- New: Place Gold Coins in a Room ---
+// Randomly places 1–3 coins on floor cells.
+void placeGoldInRoom(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    int numGold = 1 + rand() % 3;
+    for (int i = 0; i < numGold; i++) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place coin on a floor.
+            map[y][x] = '$';
+        }
+    }
+}
+
+void placeBlackGoldInRoom(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    int numGold = 1 + rand() % 2;
+    for (int i = 0; i < numGold; i++) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place coin on a floor.
+            map[y][x] = '*';
+        }
+    }
+}
+// --- New: Place Traps in a Room ---
+// Randomly places 0–2 traps on floor cells.
+void placeTrapInRoom(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    int numTraps = rand() % 3; // 0, 1, or 2 traps.
+    for (int i = 0; i < numTraps; i++) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place trap on a floor cell.
+            map[y][x] = '^';
+        }
+    }
+}
+
+// --- New: Place Food in a Room ---
+// Randomly places food on a floor cell (0–1 food per room).
+void placeFoodInRoom(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    // 50% chance to place food.
+    if (rand() % 2 == 0) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place food on a floor.
+            map[y][x] = 'f';
+        }
+    }
+    
+}
+
+void placeFoodInRoom_d(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    // 50% chance to place food.
+    if (rand() % 2 == 0) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place food on a floor.
+            map[y][x] = 'd';
+        }
+    }
+    
+}
+
+/*s is added by 8*/
+void placeFoodInRoom_s(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    // 50% chance to place food.
+    if (rand() % 2 == 0) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place food on a floor.
+            map[y][x] = 's';
+        }
+    }
+    
+}
+/* a is added 9*/
+void placeFoodInRoom_a(char map[MAP_HEIGHT][MAP_WIDTH], Room room) {
+    // 50% chance to place food.
+    if (rand() % 2 == 0) {
+        int x = room.x + 1 + rand() % (room.width - 2);
+        int y = room.y + 1 + rand() % (room.height - 2);
+        if (map[y][x] == '.') {  // Only place food on a floor.
+            map[y][x] = 'a';
+        }
+    }
+    
+}
+
+
+
+
 // --- Corridor Carving ---
 // A simple BFS corridor-carver.
 typedef struct {
@@ -184,8 +271,7 @@ void drawCorridorBetweenRooms(char map[MAP_HEIGHT][MAP_WIDTH], Room room1, Room 
 }
 
 // --- Map Generator with Room List ---
-// This function carves the map, records the rooms in FloorRooms,
-// and accepts an optional forcedRoom (if non-NULL, it is carved first).
+// Carves the map, records rooms in FloorRooms, and accepts an optional forced room.
 void generateMapWithRooms(char map[MAP_HEIGHT][MAP_WIDTH], FloorRooms *fr, Room *forcedRoom) {
     int i, j;
     // Clear the map.
@@ -197,17 +283,26 @@ void generateMapWithRooms(char map[MAP_HEIGHT][MAP_WIDTH], FloorRooms *fr, Room 
     
     fr->count = 0;
     
-    // If we have a forced room, carve it first.
+    // If there is a forced room, carve it first.
     if (forcedRoom) {
         fr->rooms[fr->count++] = *forcedRoom;
         carveRoom(map, *forcedRoom);
+        placeGoldInRoom(map, *forcedRoom);
+        placeBlackGoldInRoom(map, *forcedRoom);
+        
+        placeTrapInRoom(map, *forcedRoom);
+        
+        placeFoodInRoom(map, *forcedRoom);
+        placeFoodInRoom_d(map, *forcedRoom);
+        placeFoodInRoom_s(map, *forcedRoom);
+        placeFoodInRoom_a(map, *forcedRoom);
+
     }
     
     // Generate additional random rooms.
     int attempts = 0;
     while (fr->count < MAX_ROOMS && attempts < 1000) {
         Room newRoom = generateRandomRoom();
-        // If there is a forced room, ensure no overlap.
         if (forcedRoom && roomsOverlap(newRoom, *forcedRoom)) {
             attempts++;
             continue;
@@ -222,6 +317,10 @@ void generateMapWithRooms(char map[MAP_HEIGHT][MAP_WIDTH], FloorRooms *fr, Room 
         if (!overlaps) {
             fr->rooms[fr->count++] = newRoom;
             carveRoom(map, newRoom);
+            placeGoldInRoom(map, newRoom);
+            placeBlackGoldInRoom(map, newRoom);
+            placeTrapInRoom(map, newRoom);
+            placeFoodInRoom(map, newRoom);
         }
         attempts++;
     }
@@ -233,8 +332,6 @@ void generateMapWithRooms(char map[MAP_HEIGHT][MAP_WIDTH], FloorRooms *fr, Room 
 }
 
 // --- Stair Position Helper ---
-// Chooses a random floor cell (not a wall) inside a room.
-// Assumes the room is at least 3x3.
 void chooseStairPosition(Room room, int *sx, int *sy) {
     *sx = room.x + 1 + rand() % (room.width - 2);
     *sy = room.y + 1 + rand() % (room.height - 2);
@@ -273,52 +370,63 @@ void displayMap(WINDOW *game_win, int floor, Player *player) {
 
 // A helper to check if a cell is allowed for movement.
 int isAllowedCell(char cell) {
-    return (cell == '.' || cell == '#' || cell == '+' || cell == '<' || cell == '>' || cell == 'E');
-    // 'E' will denote the end game room's marker.
+    return (cell == '.' || cell == '#' || cell == '+' ||
+            cell == '<' || cell == '>' || cell == '$' ||
+            cell == 'E' || cell == '^' || cell == 'f' ||
+            cell == '*' || cell == 'd' || cell == 's' ||
+            cell == 'a');
 }
 
-// Get current time in milliseconds.
-long getCurrentTimeMs() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (long)(ts.tv_sec * 1000L + ts.tv_nsec / 1000000L);
+// --- Input Parsing ---
+int readInput() {
+    int ch = getch();
+    if (ch == 27) { // Escape character.
+        int seq[6] = {0};
+        for (int i = 0; i < 5; i++) {
+            int next = getch();
+            if (next == ERR)
+                break;
+            seq[i] = next;
+        }
+        if (seq[0] == '[' && seq[1] == '1' && seq[2] == ';' && seq[3] == '2') {
+            switch(seq[4]) {
+                case 'A': return KEY_SUP;
+                case 'B': return KEY_SDOWN;
+                case 'C': return KEY_SRIGHT;
+                case 'D': return KEY_SLEFT;
+            }
+        }
+        return ch;
+    }
+    return ch;
 }
 
-// --- Floor Setup ---
-// Global room lists for each floor.
+// --- Global Variables for Floor Setup ---
 FloorRooms floorRooms[NUM_FLOORS];
-// Global variables to store the stair coordinates for each connection.
-int stairA_x, stairA_y;  // Connects Floor 1 (up-stair) to Floor 2 (down-stair)
-int stairB_x, stairB_y;  // Connects Floor 2 (up-stair) to Floor 3 (down-stair)
-int stairC_x, stairC_y;  // Connects Floor 3 (up-stair) to Floor 4 (down-stair)
-// We also store the end game room for floor 4.
+int stairA_x, stairA_y;  // Floor 1 <-> Floor 2
+int stairB_x, stairB_y;  // Floor 2 <-> Floor 3
+int stairC_x, stairC_y;  // Floor 3 <-> Floor 4
 Room endGameRoom;
 
-// In this function we generate all floors.
-// Floor 1 is generated normally. Then we choose a room from floor 1 to carry the stair up,
-// force that room into floor 2 so that the corresponding down-stair appears in the same spot,
-// and similarly for floors 2→3 and 3→4. In addition, on floor 4 we designate one extra room
-// as the end game room.
+// --- Floor Setup ---
+// Generates floors with matching stair rooms and an end game room.
 void setupFloors() {
-    // --- Floor 1: no forced room. ---
+    // Floor 1: no forced room.
     generateMapWithRooms(floors[0], &floorRooms[0], NULL);
     
     // Choose a room from floor 1 to be the stair room.
     Room stairRoom1;
     if (floorRooms[0].count > 0) {
-        stairRoom1 = floorRooms[0].rooms[0];  // You can choose randomly if desired.
-        // Choose a random stair position inside the room.
+        stairRoom1 = floorRooms[0].rooms[0];
         chooseStairPosition(stairRoom1, &stairA_x, &stairA_y);
-        // Place the up-stair ('<') in floor 1.
         floors[0][stairA_y][stairA_x] = '<';
     }
     
-    // --- Floor 2: force the room from floor 1. ---
+    // Floor 2: force the room from floor 1.
     generateMapWithRooms(floors[1], &floorRooms[1], &stairRoom1);
-    // In floor 2, place the down-stair ('>') at the same position.
     floors[1][stairA_y][stairA_x] = '>';
     
-    // Choose a different room from floor 2 for the next upward stair.
+    // Choose another room from floor 2 for the next stair.
     Room stairRoom2;
     if (floorRooms[1].count > 1) {
         stairRoom2 = floorRooms[1].rooms[floorRooms[1].count - 1];
@@ -326,7 +434,7 @@ void setupFloors() {
         floors[1][stairB_y][stairB_x] = '<';
     }
     
-    // --- Floor 3: force the room from floor 2 that contains the upward stair.
+    // Floor 3: force the room from floor 2 that has the upward stair.
     generateMapWithRooms(floors[2], &floorRooms[2], &stairRoom2);
     floors[2][stairB_y][stairB_x] = '>';
     
@@ -338,14 +446,13 @@ void setupFloors() {
         floors[2][stairC_y][stairC_x] = '<';
     }
     
-    // --- Floor 4: force the room from floor 3 that contains the upward stair.
+    // Floor 4: force the room from floor 3 that has the upward stair.
     generateMapWithRooms(floors[3], &floorRooms[3], &stairRoom3);
     floors[3][stairC_y][stairC_x] = '>';
     
-    // Additionally, designate one extra room on floor 4 as the end game room.
+    // Designate an extra room on floor 4 as the end game room.
     if (floorRooms[3].count > 1) {
         endGameRoom = floorRooms[3].rooms[floorRooms[3].count - 1];
-        // Mark a random cell inside that room with 'E' (end game marker).
         int ex, ey;
         chooseStairPosition(endGameRoom, &ex, &ey);
         floors[3][ey][ex] = 'E';
@@ -389,24 +496,31 @@ void displayGame() {
     box(status_win, 0, 0);
     wrefresh(status_win);
     
-    mvwprintw(msg_win, 1, 1, "Arrow keys: move, Shift+arrow: slide, colors: r/g/b/y/m/c, hold 'm' for full map, F1 to quit.");
+    mvwprintw(msg_win, 1, 1, "Arrows: move, Shift+arrows: run, m: toggle map, r/g/b/y/p/c: colors, F1: quit");
     wrefresh(msg_win);
     
-    mvwprintw(status_win, 1, 1, "Name: Player1");
-    mvwprintw(status_win, 2, 1, "Gold: 100");
-    mvwprintw(status_win, 3, 1, "Armor: 50");
-    mvwprintw(status_win, 4, 1, "Exp: 0");
-    mvwprintw(status_win, 5, 1, "HP: 100");
-    wrefresh(status_win);
-    
-    // Seed the random generator.
     srand(time(NULL));
-    
-    // Generate floors with matching stair rooms and designate the end game room.
     setupFloors();
     
-    // Place the player on Floor 1 at an allowed cell (avoid stair cells).
-    Player player = {0, 0, 1};
+    // Initialize a sample player.
+    Player player;
+    player.username = strdup("PlayerOne");
+    player.Gold = 50;
+    player.Armor = 50;
+    player.Exp = 1;
+    player.HP = 100;
+    player.color = 1;
+    player.x = 0;
+    player.y = 0;
+    
+    mvwprintw(status_win, 1, 1, "Name: %s", player.username);
+    mvwprintw(status_win, 2, 1, "Gold: %d", player.Gold);
+    mvwprintw(status_win, 3, 1, "Armor: %d", player.Armor);
+    mvwprintw(status_win, 4, 1, "Exp: %d", player.Exp);
+    mvwprintw(status_win, 5, 1, "HP: %d", player.HP);
+    wrefresh(status_win);
+    
+    // Find an allowed cell on Floor 1.
     bool foundPlayer = false;
     for (int j = 0; j < MAP_HEIGHT && !foundPlayer; j++) {
         for (int i = 0; i < MAP_WIDTH && !foundPlayer; i++) {
@@ -422,55 +536,126 @@ void displayGame() {
     int current_floor = 0;  // Start on Floor 1.
     updateDiscovered(current_floor, player.x, player.y);
     
-    // Stair lock prevents immediate re-triggering.
     bool stairLock = false;
     int ch;
     bool gameEnded = false;
     
-    while ((ch = getch()) != KEY_F(1) && !gameEnded) {
+    while ((ch = readInput()) != KEY_F(1) && !gameEnded) {
+        // Update status window.
+        werase(status_win);
+        box(status_win, 0, 0);
+        mvwprintw(status_win, 1, 1, "Name: %s", player.username);
+        mvwprintw(status_win, 2, 1, "Gold: %d", player.Gold);
+        mvwprintw(status_win, 3, 1, "Armor: %d", player.Armor);
+        mvwprintw(status_win, 4, 1, "Exp: %d", player.Exp);
+        mvwprintw(status_win, 5, 1, "HP: %d", player.HP);
+        mvwprintw(status_win, 8, 1, "m: toggle map");
+        mvwprintw(status_win, 10, 1, "r/g/b/y/p/c: color");
+        wrefresh(status_win);
+        
         if (ch != ERR) {
+            // Toggle full map display.
             if (ch == 'm') {
-                last_m_time_ms = getCurrentTimeMs();
-                showFullMap = 1;
-            } else {
-                int new_x = player.x, new_y = player.y;
-                // Normal one-tile movement for arrow keys.
-                switch(ch) {
-                    case KEY_UP:    new_y--; break;
-                    case KEY_DOWN:  new_y++; break;
-                    case KEY_LEFT:  new_x--; break;
-                    case KEY_RIGHT: new_x++; break;
-                    // Shifted arrow keys: slide in that direction until blocked.
-                    case shifKEY_SUP:
-                        while (new_y > 0 && isAllowedCell(floors[current_floor][new_y-1][player.x]))
-                            new_y--;
-                        break;
-                    case KEY_SDOWN:
-                        while (new_y < MAP_HEIGHT - 1 && isAllowedCell(floors[current_floor][new_y+1][player.x]))
-                            new_y++;
-                        break;
-                    case KEY_SLEFT:
-                        while (new_x > 0 && isAllowedCell(floors[current_floor][player.y][new_x-1]))
-                            new_x--;
-                        break;
-                    case KEY_SRIGHT:
-                        while (new_x < MAP_WIDTH - 1 && isAllowedCell(floors[current_floor][player.y][new_x+1]))
-                            new_x++;
-                        break;
-                }
-                if (ch == 'r')      player.color = 1;
-                else if (ch == 'g') player.color = 2;
-                else if (ch == 'b') player.color = 3;
-                else if (ch == 'y') player.color = 4;
-                else if (ch == 'm') player.color = 5;  // 'm' is also used for full map.
-                else if (ch == 'c') player.color = 6;
-                
-                if (new_x >= 0 && new_x < MAP_WIDTH &&
-                    new_y >= 0 && new_y < MAP_HEIGHT &&
-                    isAllowedCell(floors[current_floor][new_y][new_x])) {
-                    player.x = new_x;
-                    player.y = new_y;
+                showFullMap = !showFullMap;
+            }
+            else if (ch == KEY_SLEFT) {
+                while (player.x - 1 >= 0 &&
+                       isAllowedCell(floors[current_floor][player.y][player.x - 1])) {
+                    player.x--;
                     updateDiscovered(current_floor, player.x, player.y);
+                    werase(game_win);
+                    box(game_win, 0, 0);
+                    displayMap(game_win, current_floor, &player);
+                    napms(30);
+                }
+                continue;
+            } else if (ch == KEY_SRIGHT) {
+                while (player.x + 1 < MAP_WIDTH &&
+                       isAllowedCell(floors[current_floor][player.y][player.x + 1])) {
+                    player.x++;
+                    updateDiscovered(current_floor, player.x, player.y);
+                    werase(game_win);
+                    box(game_win, 0, 0);
+                    displayMap(game_win, current_floor, &player);
+                    napms(30);
+                }
+                continue;
+            } else if (ch == KEY_SUP) {
+                while (player.y - 1 >= 0 &&
+                       isAllowedCell(floors[current_floor][player.y - 1][player.x])) {
+                    player.y--;
+                    updateDiscovered(current_floor, player.x, player.y);
+                    werase(game_win);
+                    box(game_win, 0, 0);
+                    displayMap(game_win, current_floor, &player);
+                    napms(30);
+                }
+                continue;
+            } else if (ch == KEY_SDOWN) {
+                while (player.y + 1 < MAP_HEIGHT &&
+                       isAllowedCell(floors[current_floor][player.y + 1][player.x])) {
+                    player.y++;
+                    updateDiscovered(current_floor, player.x, player.y);
+                    werase(game_win);
+                    box(game_win, 0, 0);
+                    displayMap(game_win, current_floor, &player);
+                    napms(30);
+                }
+                continue;
+            }
+            
+            // Regular one-cell movement and color changes.
+            int new_x = player.x, new_y = player.y;
+            switch(ch) {
+                case KEY_UP:    new_y--; break;
+                case KEY_DOWN:  new_y++; break;
+                case KEY_LEFT:  new_x--; break;
+                case KEY_RIGHT: new_x++; break;
+            }
+            if (ch == 'r')      player.color = 1;
+            else if (ch == 'g') player.color = 2;
+            else if (ch == 'b') player.color = 3;
+            else if (ch == 'y') player.color = 4;
+            else if (ch == 'p') player.color = 5;
+            else if (ch == 'c') player.color = 6;
+            
+            if (new_x >= 0 && new_x < MAP_WIDTH &&
+                new_y >= 0 && new_y < MAP_HEIGHT &&
+                isAllowedCell(floors[current_floor][new_y][new_x])) {
+                player.x = new_x;
+                player.y = new_y;
+                updateDiscovered(current_floor, player.x, player.y);
+                
+                // --- Gold Coin Pickup ---
+                if (floors[current_floor][player.y][player.x] == '$') {
+                    player.Gold += 10;
+                    floors[current_floor][player.y][player.x] = '.';
+                }
+                else if (floors[current_floor][player.y][player.x] == '*') {
+                    player.Gold += 20;
+                    floors[current_floor][player.y][player.x] = '.';
+                }
+                // --- Trap Trigger ---
+                else if (floors[current_floor][player.y][player.x] == '^') {
+                    player.HP -= 10;  // Deduct 10 HP.
+                    floors[current_floor][player.y][player.x] = '.';
+                }
+                // --- Food Consumption ---
+                else if (floors[current_floor][player.y][player.x] == 'f') {
+                    player.HP += 10;  // Increase HP by 10.
+                    floors[current_floor][player.y][player.x] = '.';
+                }
+                else if (floors[current_floor][player.y][player.x] == 'd') {
+                    player.HP += 9;  // Increase HP by 10.
+                    floors[current_floor][player.y][player.x] = '.';
+                }
+                else if (floors[current_floor][player.y][player.x] == 's') {
+                    player.HP += 8;  // Increase HP by 10.
+                    floors[current_floor][player.y][player.x] = 's';
+                }
+                else if (floors[current_floor][player.y][player.x] == 'a') {
+                    player.HP += 7;  // Increase HP by 10.
+                    floors[current_floor][player.y][player.x] = '.';
                 }
             }
         }
@@ -503,11 +688,6 @@ void displayGame() {
             }
         }
         
-        long now_ms = getCurrentTimeMs();
-        if (showFullMap && (now_ms - last_m_time_ms > MAP_SHOW_THRESHOLD)) {
-            showFullMap = 0;
-        }
-        
         werase(game_win);
         box(game_win, 0, 0);
         displayMap(game_win, current_floor, &player);
@@ -526,6 +706,8 @@ void displayGame() {
     if (gameEnded) {
         printf("Congratulations! You've reached the end game room. Game Over.\n");
     }
+    
+    free(player.username);
 }
 
 int main() {
